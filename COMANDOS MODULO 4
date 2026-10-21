@@ -1,0 +1,166 @@
+----------------------------------------------------
+Practica 1
+----------------------------------------------------
+cat /etc/redhat-release
+ip -br address
+sudo dnf install httpd -y
+httpd -v
+sudo systemctl enable --now httpd
+sudo systemctl status httpd
+sudo mkdir -p /var/www/html
+sudo mkdir -p /var/www/site8080
+sudo nano /var/www/html/index.html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Hola Mundo</title>
+</head>
+<body>
+    <h1>Hola Mundo</h1>
+</body>
+</html>
+
+sudo nano /var/www/site8080/index.html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Datos del estudiante</title>
+</head>
+<body>
+    <h1>Práctica de servidor HTTP</h1>
+    <p>Nombre: **********</p>
+    <p>Matrícula: ******</p>
+    <p>Materia: Sistemas Operativos III</p>
+</body>
+</html>
+ls -l /var/www/html/index.html
+ls -l /var/www/site8080/index.html
+sudo nano /etc/httpd/conf.d/practica.conf
+Listen 8080
+
+<VirtualHost *:80>
+    ServerName hola.local
+    DocumentRoot "/var/www/html"
+
+    <Directory "/var/www/html">
+        Require all granted
+    </Directory>
+
+    ErrorLog /var/log/httpd/hola_error.log
+    CustomLog /var/log/httpd/hola_access.log combined
+</VirtualHost>
+
+<VirtualHost *:8080>
+    ServerName estudiante.local
+    DocumentRoot "/var/www/site8080"
+
+    <Directory "/var/www/site8080">
+        Require all granted
+    </Directory>
+
+    ErrorLog /var/log/httpd/estudiante_error.log
+    CustomLog /var/log/httpd/estudiante_access.log combined
+</VirtualHost>
+sudo dnf install policycoreutils-python-utils -y
+sudo semanage port -l | grep -E 'http_port_t|http_cache_port_t'
+sudo semanage port -m -t http_port_t -p tcp 8080
+sudo semanage port -l | grep http_port_t
+sudo firewall-cmd --permanent --add-port=80/tcp
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --reload
+sudo firewall-cmd --list-ports
+sudo apachectl configtest
+sudo systemctl restart httpd
+sudo systemctl status httpd
+sudo ss -lntp | grep httpd
+curl http://127.0.0.1/
+curl http://127.0.0.1:8080/
+curl -s http://127.0.0.1/ | grep "Hola Mundo"
+curl -s http://127.0.0.1:8080/ | grep "Leslie Rachell"
+ip -br address
+
+
+
+
+----------------------------------------------------------------------------
+Practica 2
+----------------------------------------------------------------------------
+
+cat /etc/redhat-release
+ping -c 3 google.com
+timeout 8 bash -c 'echo > /dev/tcp/smtp.gmail.com/587' && echo 'Puerto 587 accesible' || echo 'No se pudo conectar'
+
+dnf install postfix cyrus-sasl cyrus-sasl-plain s-nail nano -y
+
+systemctl enable --now postfix
+systemctl status postfix
+
+postconf -m
+
+nano /etc/postfix/main.cf
+
+
+myhostname = correo.localdomain
+mydomain = localdomain
+myorigin = $myhostname
+inet_interfaces = loopback-only
+inet_protocols = ipv4
+mynetworks = 127.0.0.0/8
+
+relayhost = [smtp.gmail.com]:587
+smtp_sasl_auth_enable = yes
+smtp_sasl_security_options = noanonymous
+smtp_tls_security_level = encrypt
+smtp_sasl_password_maps = lmdb:/etc/postfix/sasl_passwd
+
+nano /etc/postfix/sasl_passwd
+
+[smtp.gmail.com]:587 leslierachell12345@gmail.com:CONTRASEÑA_DE_APLICACIÓN
+
+chown root:root /etc/postfix/sasl_passwd
+chmod 600 /etc/postfix/sasl_passwd
+postmap lmdb:/etc/postfix/sasl_passwd
+chown root:root /etc/postfix/sasl_passwd.lmdb
+chmod 600 /etc/postfix/sasl_passwd.lmdb
+
+postfix check
+systemctl restart postfix
+systemctl status postfix
+
+
+echo "Prueba de correo desde Postfix en RHEL 10" | mailx -r leslierachell12345@gmail.com -s "Prueba Postfix" delossantosleslie00014@gmail.com
+
+
+printf 'Nombre: Leslie Rachell de los Santos Feliz\nMatricula: 20261154\n' | mailx -r leslierachell12345@gmail.com -s "MambruSeFueALaGuerra" os3conadrian@gmail.com
+
+------------------------------------------------------------------------------------
+Practica 3
+------------------------------------------------------------------------------------
+cat /etc/redhat-release
+rpm -q cups cups-pdf
+ip -4 addr show ens33
+ping -c 4 8.8.8.8
+sudo subscription-manager status
+sudo subscription-manager repos-enable codeready-builder-for-rhel-10-$(arch)-rpms
+sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
+sudo dnf repolist
+sudo dnf install -y cups cups-pdf
+sudo systemctl enable --now cups
+systemctl status cups
+sudo ss -tlnp | grep 631
+
+lpstat -p -d
+sudo lpadmin -d Cups-PDF
+echo "Prueba local RHEL 10" | lp -d Cups-PDF
+ls -lh "$(xdg-user-dir DESKTOP)"/*.pdf
+
+sudo cupsctl --remote-any
+sudo ss -tlnp | grep 631
+sudo firewall-cmd --permanent --add-service=ipp
+sudo firewall-cmd --reload
+sudo firewall-cmd --list-services
+lpstat -W all -o Cups-PDF
+sudo ls -lh /var/spool/cups-pdf/ANONYMOUS/
+gio open /var/spool/cups-pdf/ANONYMOUS/*_Notepad-job_*.pdf
