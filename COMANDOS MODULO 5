@@ -1,0 +1,81 @@
+====== PRÁCTICA 1 
+which rsync ssh
+sudo dnf install -y rsync
+mkdir ~/sincronizar
+cd ~/sincronizar
+touch archivo{1..100}.txt
+ls | wc -l
+ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
+ssh-copy-id lsantos@IP
+ssh lsantos@IP hostname
+rsync -avz /home/lsantos/sincronizar/ lsantos@IP:/home/lsantos/sincronizar/
+nano ~/sync_rsync.sh
+
+#!/bin/bash
+rsync -avz /home/lsantos/sincronizar/ lsantos@IP:/home/lsantos/sincronizar/
+
+chmod +x ~/sync_rsync.sh
+~/sync_rsync.sh
+sudo systemctl enable --now crond
+crontab -e
+* * * * * /home/lsantos/sync_rsync.sh >> /home/lsantos/sync.log 2>&1
+crontab -l
+touch ~/sincronizar/prueba_cron.txt
+ls ~/sincronizar/ | grep prueba_cron
+
+
+# ====== PRÁCTICA 2 
+
+sudo hostnamectl set-hostname nodo1
+sudo hostnamectl set-hostname nodo2
+printf 'IP\tnodo1\nIP\tnodo2\n' | sudo tee -a /etc/hosts
+getent hosts nodo1 nodo2
+sudo subscription-manager repos --enable=rhel-10-for-x86_64-highavailability-rpms
+sudo dnf install -y pcs pacemaker corosync resource-agents fence-agents-all
+sudo firewall-cmd --permanent --add-service=high-availability
+sudo firewall-cmd --reload
+sudo passwd hacluster
+sudo systemctl enable --now pcsd
+sudo pcs host auth nodo1 addr=IP nodo2 addr=IP
+sudo pcs cluster setup micluster nodo1 addr=IP nodo2 addr=IP
+sudo pcs cluster start --all
+sudo pcs cluster enable --all
+sudo pcs status
+sudo pcs property set stonith-enabled=false
+sudo pcs resource create IPflotante ocf:heartbeat:IPaddr2 ip=10.0.0.150 cidr_netmask=24 op monitor interval=10s
+sudo pcs status
+ip a | grep IP
+ping -t IP
+sudo reboot
+
+
+# ====== PRÁCTICA 3 —
+sudo dnf install httpd -y
+echo "<h1>SERVER 1</h1>" | sudo tee /var/www/html/index.html
+sudo systemctl enable --now httpd
+sudo dnf install httpd -y
+echo "<h1>SERVER 2</h1>" | sudo tee /var/www/html/index.html
+sudo systemctl enable --now httpd
+sudo dnf install keepalived -y
+sudo cp /etc/keepalived/keepalived.conf /etc/keepalived/keepalived.conf.bak
+sudo nano /etc/keepalived/keepalived.conf
+vrrp_instance VI_1 {
+    state MASTER
+    interface ens33
+    virtual_router_id 51
+    priority 110
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass clave123
+    }
+    virtual_ipaddress {
+        IP/24
+    }
+
+sudo firewall-cmd --permanent --add-rich-rule='rule protocol value="vrrp" accept'
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --reload
+sudo systemctl enable --now keepalived
+ip a | grep IP
+sudo poweroff
