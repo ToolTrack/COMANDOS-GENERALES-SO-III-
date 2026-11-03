@@ -1,0 +1,114 @@
+....................................................................................
+Practica 1
+....................................................................................
+gpgconf --kill all
+rm -rf ~/.gnupg
+rm -rf ~/practica-cifrado
+export GPG_TTY=$(tty)
+echo "Practica 1 - Cifrado GPG | Leslie De Los Santos | Matricula: 20261154"
+whoami; hostname; date
+sudo dnf install -y gnupg2
+gpg2 --version
+gpg2 --quick-generate-key "Leslie De Los Santos <delossantosleslie@gmail.com>" default default 1y
+gpg2 --list-keys
+mkdir ~/practica-cifrado
+cd ~/practica-cifrado
+echo "Informacion confidencial - Practica 1 Leslie De Los Santos 20261154" > secreto.txt
+cat secreto.txt
+ls -l
+gpg2 -e -a -r "delossantosleslie@gmail.com" secreto.txt
+shred -u secreto.txt
+ls -l
+cat secreto.txt.asc
+file secreto.txt.asc
+gpgconf --kill gpg-agent
+gpg2 -o secreto_descifrado.txt -d secreto.txt.asc
+cat secreto_descifrado.txt
+ls -l
+
+...................................................................................
+Practica 2
+...................................................................................
+
+echo "Practica 2 - Firewall | Leslie De Los Santos | Matricula: 20261154"
+cat /etc/os-release | head -3
+hostname -I
+sudo dnf install -y httpd vsftpd openssh-server
+sudo systemctl enable --now httpd vsftpd sshd
+sudo firewall-cmd --add-service={http,ftp,ssh}
+sudo ss -tlnp | grep -E ':(21|22|80)\b'
+sudo iptables -I INPUT -p tcp -m multiport --dports 21,22,80 -j DROP
+sudo iptables -L INPUT -n --line-numbers
+sudo iptables -D INPUT -p tcp -m multiport --dports 21,22,80 -j DROP
+sudo iptables -L INPUT -n --line-numbers
+sudo firewall-cmd --list-all
+sudo firewall-cmd --remove-service=http --remove-service=ftp --remove-service=ssh
+sudo firewall-cmd --remove-port=80/tcp
+sudo firewall-cmd --list-all
+sudo firewall-cmd --add-service=http --add-service=ftp --add-service=ssh
+sudo firewall-cmd --add-port=80/tcp
+sudo firewall-cmd --list-all
+
+............................................................................................
+Practica 3 
+...........................................................................................
+echo "Practica 3 - IDS Snort | Leslie De Los Santos | Matricula: 20261154"
+cat /etc/os-release | head -4
+hostname -I
+sudo subscription-manager repos --enable codeready-builder-for-rhel-$(rpm -E %rhel)-$(arch)-rpms
+sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %rhel).noarch.rpm
+sudo dnf install -y gcc gcc-c++ make cmake git flex bison autoconf automake libtool \
+  pkgconf-pkg-config libpcap-devel pcre2-devel openssl-devel zlib-devel \
+  hwloc-devel luajit-devel libdnet-devel libtirpc-devel xz-devel libuuid-devel
+mkdir ~/snort-src && cd ~/snort-src
+git clone https://github.com/snort3/libdaq.git
+cd libdaq
+./bootstrap
+./configure
+make -j$(nproc)
+sudo make install
+echo "/usr/local/lib" | sudo tee /etc/ld.so.conf.d/local.conf
+sudo ldconfig
+cd ~/snort-src
+git clone https://github.com/snort3/snort3.git
+cd snort3
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure_cmake.sh --prefix=/usr/local
+cd build
+make -j$(nproc)
+sudo make install
+sudo ldconfig
+/usr/local/bin/snort -V
+IP=$(hostname -I | awk '{print $1}')
+sudo mkdir -p /usr/local/etc/rules
+sudo tee /usr/local/etc/rules/local.rules <<EOF
+alert icmp any any -> $IP any (msg:"ICMP Ping detectado hacia el host"; sid:1000001; rev:1;)
+alert tcp any any -> $IP 21 (msg:"Trafico FTP puerto 21 detectado"; sid:1000002; rev:1;)
+alert tcp any any -> $IP 22 (msg:"Trafico SSH puerto 22 detectado"; sid:1000003; rev:1;)
+alert tcp any any -> $IP 80 (msg:"Trafico HTTP puerto 80 detectado"; sid:1000004; rev:1;)
+EOF
+cat /usr/local/etc/rules/local.rules
+sudo /usr/local/bin/snort -c /usr/local/etc/snort/snort.lua -R /usr/local/etc/rules/local.rules -T
+sudo /usr/local/bin/snort -c /usr/local/etc/snort/snort.lua -R /usr/local/etc/rules/local.rules -i ens33 -A alert_fast -k none
+...........................................................................................
+Practica 4
+...........................................................................................
+echo "Practica 4 - 2FA SSH con Google Authenticator | Leslie De Los Santos | Matricula: 20261154"
+timedatectl
+sudo timedatectl set-ntp true
+sudo dnf install -y google-authenticator qrencode
+google-authenticator
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+mv ~/.google_authenticator ~/.ssh/
+restorecon -Rv ~/.ssh
+sudo cp /etc/pam.d/sshd /etc/pam.d/sshd.bak
+sudo sed -i '/^auth.*substack.*password-auth/a auth       required     pam_google_authenticator.so secret=/home/${USER}/.ssh/.google_authenticator nullok' /etc/pam.d/sshd
+sudo head -5 /etc/pam.d/sshd
+sudo tee /etc/ssh/sshd_config.d/10-2fa.conf <<EOF
+UsePAM yes
+KbdInteractiveAuthentication yes
+AuthenticationMethods keyboard-interactive
+EOF
+sudo sshd -t
+sudo systemctl restart sshd
+sudo sshd -T | grep -Ei 'usepam|kbdinteractive|authenticationmethods'
