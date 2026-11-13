@@ -73,6 +73,7 @@ net use
 :: 15. Prueba de acceso denegado (Opcional)
 net use * /delete /y
 net use Z: \\ip de su maquina\compartida /user:invitado *
+
 .............................................................
 Practica 3 
 .............................................................
