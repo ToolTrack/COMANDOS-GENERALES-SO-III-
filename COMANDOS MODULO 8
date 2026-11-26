@@ -1,0 +1,61 @@
+===== PRACTICA 1: =====
+
+cat /etc/redhat-release
+sudo dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine podman runc
+sudo dnf -y install dnf-plugins-core
+sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+sudo systemctl status docker
+docker --version
+sudo docker run hello-world
+sudo docker pull nginx
+sudo docker images
+sudo mkdir -p /home/website
+sudo docker run -d --name nginx-web -p 8888:80 -v /home/website:/usr/share/nginx/html:Z nginx
+sudo docker ps
+nano ~/index.html
+cat ~/index.html
+sudo cp ~/index.html /home/website/
+ls -lZ /home/website
+sudo firewall-cmd --permanent --add-port=8888/tcp
+sudo firewall-cmd --reload
+curl http://127.0.0.1:8888
+
+
+===== PRACTICA 2: =====
+
+sudo docker pull portainer/portainer-ce:lts
+sudo docker images
+sudo docker volume create portainer_data
+sudo docker run -d -p 8000:8000 -p 9000:9000 -p 9443:9443 --name portainer --restart=always --privileged -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:lts
+sudo docker ps
+sudo firewall-cmd --permanent --add-port=8000/tcp --add-port=9000/tcp --add-port=9443/tcp
+sudo firewall-cmd --reload
+sudo docker restart portainer
+sudo docker logs portainer 2>&1 | grep -i token
+
+
+===== PRACTICA 3: =====
+
+sudo dnf install -y docker-compose-plugin --repo=docker-ce-stable
+rpm -q docker-compose-plugin
+docker compose version
+mkdir ~/wordpress
+cd ~/wordpress
+nano docker-compose.yml
+cat docker-compose.yml
+docker compose config
+echo '{ "max-concurrent-downloads": 1 }' | sudo tee /etc/docker/daemon.json
+cat /etc/docker/daemon.json
+sudo systemctl restart docker
+sudo -v
+until sudo docker compose pull; do echo "Reintentando..."; sleep 5; done
+sudo docker images
+sudo ss -tlnp | grep -E ':8080|:8081'
+sed -i 's/"8080:80"/"8081:80"/' docker-compose.yml
+grep 8081 docker-compose.yml
+sudo docker compose up -d
+sudo docker compose ps
+sudo firewall-cmd --permanent --add-port=8081/tcp
+sudo firewall-cmd --reload
